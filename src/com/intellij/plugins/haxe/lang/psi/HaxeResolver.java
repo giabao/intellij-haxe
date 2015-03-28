@@ -35,7 +35,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -90,15 +89,13 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
       assert haxeClass != null;
       if (!haxeClass.getHaxeExtendsList().isEmpty()) {
         final HaxeExpression superExpression = haxeClass.getHaxeExtendsList().get(0).getReferenceExpression();
-        final HaxeClass superClass = superExpression instanceof HaxeReference
-                                     ? ((HaxeReference)superExpression).resolveHaxeClass().getHaxeClass()
-                                     : null;
+        final HaxeClass superClass = ((HaxeReference)superExpression).resolveHaxeClass().getHaxeClass();
         final HaxeNamedComponent constructor = ((superClass == null) ? null : superClass.findHaxeMethodByName(HaxeTokenTypes.ONEW.toString()));
         return toCandidateInfoArray(((constructor != null) ? constructor : superClass));
       }
     }
 
-    final List<PsiElement> result = new ArrayList<PsiElement>();
+    final List<PsiElement> result = new ArrayList<>();
     PsiTreeUtil.treeWalkUp(new ResolveScopeProcessor(result, reference.getCanonicalText()), reference, null, new ResolveState());
     if (!result.isEmpty()) {
       return result;
@@ -127,36 +124,40 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
         HaxeNamedComponent namedSubComponent = HaxeResolveUtil.findNamedSubComponent(haxeClass, referenceText);
 
         if (namedSubComponent != null && namedSubComponent.isStatic()) {
-          result.add(namedSubComponent.getComponentName().getIdentifier());
-          return result;
+          HaxeComponentName componentName = namedSubComponent.getComponentName();
+          if (componentName != null) {
+            result.add(componentName.getIdentifier());
+            //FIXME should return even if componentName == null?
+            return result;
+          }
         }
       }
     }
 
     if (reference instanceof HaxeReferenceExpression) {
-      String text1 = reference.getText();
-      PsiElement element = null;
       if (reference.getParent() instanceof HaxeReferenceExpression) {
-        element = reference;
+        PsiElement element = reference;
         while (element.getParent() instanceof HaxeReferenceExpression) {
           element = element.getParent();
         }
 
-        if (element != null) {
-            element = element.getFirstChild();
-            PsiElement lastChild = element.getLastChild();
-            if (element instanceof HaxeReferenceExpression && lastChild instanceof HaxeReferenceExpression && element.getChildren().length == 3) {
-              HaxeClass classByQName = HaxeResolveUtil.findClassByQName(element.getText(), element.getContext());
-              if (classByQName != null) {
-                HaxeNamedComponent namedSubComponent =
-                  HaxeResolveUtil.findNamedSubComponent(classByQName, ((HaxeReferenceExpression)lastChild).getIdentifier().getText());
+        element = element.getFirstChild();
+        PsiElement lastChild = element.getLastChild();
+        if (element instanceof HaxeReferenceExpression && lastChild instanceof HaxeReferenceExpression && element.getChildren().length == 3) {
+          HaxeClass classByQName = HaxeResolveUtil.findClassByQName(element.getText(), element.getContext());
+          if (classByQName != null) {
+            HaxeNamedComponent namedSubComponent =
+              HaxeResolveUtil.findNamedSubComponent(classByQName, ((HaxeReferenceExpression)lastChild).getIdentifier().getText());
 
-                if (namedSubComponent != null) {
-                  result.add(namedSubComponent.getComponentName().getIdentifier());
-                  return result;
-                }
+            if (namedSubComponent != null) {
+              HaxeComponentName componentName = namedSubComponent.getComponentName();
+              if (componentName != null) {
+                result.add(componentName.getIdentifier());
+                //FIXME should return even if componentName == null?
+                return result;
               }
             }
+          }
         }
       }
     }
@@ -171,7 +172,7 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
       PsiPackageReference packageReference = new PackageReferenceSet(reference.getText(), reference, 0).getLastReference();
       PsiElement packageTarget = packageReference != null ? packageReference.resolve() : null;
       if (packageTarget != null) {
-        return Arrays.asList(packageTarget);
+        return Collections.singletonList(packageTarget);
       }
     }
 
@@ -189,11 +190,10 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
   private List<? extends PsiElement> resolveChain(HaxeReference lefthandExpression, HaxeReference reference) {
     final HaxeComponentName componentName = tryResolveHelperClass(lefthandExpression, reference.getText());
     if (componentName != null) {
-      return Arrays.asList(componentName);
+      return Collections.singletonList(componentName);
     }
     // Try resolving keywords (super, new), arrays, literals, etc.
-    List<? extends PsiElement> resolvedList = resolveByClassAndSymbol(lefthandExpression.resolveHaxeClass(), reference);
-    return resolvedList;
+    return resolveByClassAndSymbol(lefthandExpression.resolveHaxeClass(), reference);
   }
 
   /**
@@ -251,7 +251,7 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
   }
 
   private static List<? extends PsiElement> toCandidateInfoArray(@Nullable PsiElement element) {
-    return element == null ? Collections.<PsiElement>emptyList() : Arrays.asList(element);
+    return element == null ? Collections.<PsiElement>emptyList() : Collections.singletonList(element);
   }
 
   private static List<? extends PsiElement> resolveByClassAndSymbol(@Nullable HaxeClassResolveResult resolveResult,
@@ -293,7 +293,7 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
     }
 
     @Override
-    public boolean execute(@NotNull PsiElement element, ResolveState state) {
+    public boolean execute(@NotNull PsiElement element, @NotNull ResolveState state) {
       if (element instanceof HaxeNamedComponent) {
         final HaxeComponentName componentName = ((HaxeNamedComponent)element).getComponentName();
         if (componentName != null && name.equals(componentName.getText())) {
@@ -310,7 +310,7 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
     }
 
     @Override
-    public void handleEvent(Event event, @Nullable Object associated) {
+    public void handleEvent(@NotNull Event event, @Nullable Object associated) {
     }
   }
 }
