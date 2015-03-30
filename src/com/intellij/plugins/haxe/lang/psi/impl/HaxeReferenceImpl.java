@@ -369,7 +369,7 @@ abstract public class HaxeReferenceImpl extends HaxeExpressionImpl implements Ha
       }
     }
 
-    PsiElement resolve = resolve();
+    final PsiElement resolve = resolve();
     if (resolve instanceof PsiPackage) {
       // Packages don't ever resolve to classes. (And they don't have children!)
       return HaxeClassResolveResult.EMPTY;
@@ -392,7 +392,7 @@ abstract public class HaxeReferenceImpl extends HaxeExpressionImpl implements Ha
       }
     }
 
-    HaxeClassResolveResult result = HaxeResolveUtil.getHaxeClassResolveResult(resolve(), tryGetLeftResolveResult(this).getSpecialization());
+    HaxeClassResolveResult result = HaxeResolveUtil.getHaxeClassResolveResult(resolve, tryGetLeftResolveResult(this).getSpecialization());
     if (result.getHaxeClass() == null) {
       result = HaxeClassResolveResult.create(HaxeResolveUtil.findClassByQName(getText(), this));
     }
