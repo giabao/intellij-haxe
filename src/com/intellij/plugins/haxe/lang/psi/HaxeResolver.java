@@ -30,7 +30,6 @@ import com.intellij.psi.impl.source.resolve.reference.impl.providers.PackageRefe
 import com.intellij.psi.impl.source.resolve.reference.impl.providers.PsiPackageReference;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.util.PsiUtil;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -50,27 +49,36 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
   public List<? extends PsiElement> resolve(@NotNull HaxeReference reference, boolean incompleteCode) {
     //TODO explain logic of this method, how it related to http://haxe.org/manual/type-system-resolution-order.html?
 
-    final HaxeType type = PsiTreeUtil.getParentOfType(reference, HaxeType.class);
-    final HaxeClass haxeClassInType = HaxeResolveUtil.tryResolveClassByQName(type);
-    if (type != null && haxeClassInType != null) {
-      return toCandidateInfoArray(haxeClassInType.getComponentName());
+    {
+      final HaxeType type = PsiTreeUtil.getParentOfType(reference, HaxeType.class);
+      final HaxeClass haxeClassInType = HaxeResolveUtil.tryResolveClassByQName(type);
+      if (type != null && haxeClassInType != null) {
+        return toCandidateInfoArray(haxeClassInType.getComponentName());
+      }
     }
 
-    // Maybe this is class name
-    final HaxeClass resultClass = HaxeResolveUtil.tryResolveClassByQName(reference);
-    if (resultClass != null) {
-      return toCandidateInfoArray(resultClass.getComponentName());
+    {
+      // Maybe this is class name
+      final HaxeClass resultClass = HaxeResolveUtil.tryResolveClassByQName(reference);
+      if (resultClass != null) {
+        return toCandidateInfoArray(resultClass.getComponentName());
+      }
     }
 
-    // Maybe a package name
-    final PsiPackage psiPackage = JavaPsiFacade.getInstance(reference.getProject()).findPackage(reference.getText());
-    if (psiPackage != null) {
-      return toCandidateInfoArray(psiPackage);
+    {
+      // Maybe a package name
+      final PsiPackage psiPackage = JavaPsiFacade.getInstance(reference.getProject()).findPackage(reference.getText());
+      if (psiPackage != null) {
+        return toCandidateInfoArray(psiPackage);
+      }
     }
-    // See if it's a source file we're importing... (most likely a convenience library, such as haxe.macro.Tools)
-    final PsiFile importFile = resolveImportFile(reference);
-    if (null != importFile) {
-      return toCandidateInfoArray(importFile);
+
+    {
+      // See if it's a source file we're importing... (most likely a convenience library, such as haxe.macro.Tools)
+      final PsiFile importFile = resolveImportFile(reference);
+      if (null != importFile) {
+        return toCandidateInfoArray(importFile);
+      }
     }
 
     // if not first in chain
@@ -100,39 +108,44 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
       }
     }
 
-    final List<PsiElement> result = new ArrayList<>();
-    PsiTreeUtil.treeWalkUp(new ResolveScopeProcessor(result, reference.getCanonicalText()), reference, null, new ResolveState());
-    if (!result.isEmpty()) {
-      return result;
+    {
+      final List<PsiElement> result = new ArrayList<>();
+      PsiTreeUtil.treeWalkUp(new ResolveScopeProcessor(result, reference.getCanonicalText()), reference, null, new ResolveState());
+      if (!result.isEmpty()) {
+        return result;
+      }
     }
 
-    PsiFile psiFile = reference.getContainingFile();
+    {
+      PsiFile psiFile = reference.getContainingFile();
 
-    List<PsiElement> importStatementWithWildcardList = ContainerUtil.findAll(psiFile.getChildren(), new Condition<PsiElement>() {
-      @Override
-      public boolean value(PsiElement element) {
-        return element instanceof HaxeImportStatementWithWildcard &&
-               UsefulPsiTreeUtil.isImportStatementWildcardForType(UsefulPsiTreeUtil.getQNameForImportStatementWithWildcardType(
-                 (HaxeImportStatementWithWildcard)element));
-      }
-    });
+      List<PsiElement> importStatementWithWildcardList = ContainerUtil.findAll(psiFile.getChildren(), new Condition<PsiElement>() {
+        @Override
+        public boolean value(PsiElement element) {
+          return element instanceof HaxeImportStatementWithWildcard &&
+                 UsefulPsiTreeUtil.isImportStatementWildcardForType(UsefulPsiTreeUtil.getQNameForImportStatementWithWildcardType(
+                   (HaxeImportStatementWithWildcard)element));
+        }
+      });
 
-    for (PsiElement importStatementWithWildcard : importStatementWithWildcardList) {
-      HaxeImportStatementWithWildcard importStatementWithWildcard1 = (HaxeImportStatementWithWildcard)importStatementWithWildcard;
-      String qNameForImportStatementWithWildcardType =
-        UsefulPsiTreeUtil.getQNameForImportStatementWithWildcardType(importStatementWithWildcard1);
+      for (PsiElement importStatementWithWildcard : importStatementWithWildcardList) {
+        HaxeImportStatementWithWildcard importStatementWithWildcard1 = (HaxeImportStatementWithWildcard)importStatementWithWildcard;
+        String qNameForImportStatementWithWildcardType =
+          UsefulPsiTreeUtil.getQNameForImportStatementWithWildcardType(importStatementWithWildcard1);
 
-      HaxeClass haxeClass = HaxeResolveUtil.findClassByQName(qNameForImportStatementWithWildcardType, importStatementWithWildcard1.getContext());
+        HaxeClass haxeClass =
+          HaxeResolveUtil.findClassByQName(qNameForImportStatementWithWildcardType, importStatementWithWildcard1.getContext());
 
-      if (haxeClass != null) {
-        String referenceText = reference.getText();
-        HaxeNamedComponent namedSubComponent = HaxeResolveUtil.findNamedSubComponent(haxeClass, referenceText);
+        if (haxeClass != null) {
+          String referenceText = reference.getText();
+          HaxeNamedComponent namedSubComponent = HaxeResolveUtil.findNamedSubComponent(haxeClass, referenceText);
 
-        if (namedSubComponent != null && namedSubComponent.isStatic()) {
-          HaxeComponentName componentName = namedSubComponent.getComponentName();
-          if (componentName != null) {
-            //FIXME should return even if componentName == null?
-            return Collections.singletonList(componentName.getIdentifier());
+          if (namedSubComponent != null && namedSubComponent.isStatic()) {
+            HaxeComponentName componentName = namedSubComponent.getComponentName();
+            if (componentName != null) {
+              //FIXME should return even if componentName == null?
+              return Collections.singletonList(componentName.getIdentifier());
+            }
           }
         }
       }
@@ -166,10 +179,13 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
       }
     }
 
-    // try super field
-    List<? extends PsiElement> superElements = resolveByClassAndSymbol(PsiTreeUtil.getParentOfType(reference, HaxeClass.class), reference);
-    if (!superElements.isEmpty()) {
-      return superElements;
+    {
+      // try super field
+      List<? extends PsiElement> superElements =
+        resolveByClassAndSymbol(PsiTreeUtil.getParentOfType(reference, HaxeClass.class), reference);
+      if (!superElements.isEmpty()) {
+        return superElements;
+      }
     }
 
     if (PsiNameHelper.getInstance(reference.getProject()).isQualifiedName(reference.getText())) {
