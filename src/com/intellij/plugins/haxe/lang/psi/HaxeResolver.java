@@ -30,6 +30,7 @@ import com.intellij.psi.impl.source.resolve.reference.impl.providers.PackageRefe
 import com.intellij.psi.impl.source.resolve.reference.impl.providers.PsiPackageReference;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.PsiUtil;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -47,6 +48,8 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
 
   @Override
   public List<? extends PsiElement> resolve(@NotNull HaxeReference reference, boolean incompleteCode) {
+    //TODO explain logic of this method, how it related to http://haxe.org/manual/type-system-resolution-order.html?
+
     final HaxeType type = PsiTreeUtil.getParentOfType(reference, HaxeType.class);
     final HaxeClass haxeClassInType = HaxeResolveUtil.tryResolveClassByQName(type);
     if (type != null && haxeClassInType != null) {
@@ -72,16 +75,18 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
 
     // if not first in chain
     // foo.bar.baz
-    final HaxeReference leftReference = HaxeResolveUtil.getLeftReference(reference);
-    if (leftReference != null && reference.getParent() instanceof HaxeReference) {
-      return resolveChain(leftReference, reference);
+    if (reference.getParent() instanceof HaxeReference) {
+      final HaxeReference leftReference = HaxeResolveUtil.getLeftReference(reference);
+      if (leftReference != null) return resolveChain(leftReference, reference);
     }
 
     // then maybe chain
     // node(foo.node(bar)).node(baz)
-    final HaxeReference[] childReferences = PsiTreeUtil.getChildrenOfType(reference, HaxeReference.class);
-    if (childReferences != null && childReferences.length == 2) {
-      return resolveChain(childReferences[0], childReferences[1]);
+    {
+      final HaxeReference[] childReferences = PsiTreeUtil.getChildrenOfType(reference, HaxeReference.class);
+      if (childReferences != null && childReferences.length == 2) {
+        return resolveChain(childReferences[0], childReferences[1]);
+      }
     }
 
     if (reference instanceof HaxeSuperExpression) {
@@ -126,9 +131,8 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
         if (namedSubComponent != null && namedSubComponent.isStatic()) {
           HaxeComponentName componentName = namedSubComponent.getComponentName();
           if (componentName != null) {
-            result.add(componentName.getIdentifier());
             //FIXME should return even if componentName == null?
-            return result;
+            return Collections.singletonList(componentName.getIdentifier());
           }
         }
       }
@@ -143,6 +147,7 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
 
         element = element.getFirstChild();
         PsiElement lastChild = element.getLastChild();
+        //TODO comment about the magic const 3 when compare with .length
         if (element instanceof HaxeReferenceExpression && lastChild instanceof HaxeReferenceExpression && element.getChildren().length == 3) {
           HaxeClass classByQName = HaxeResolveUtil.findClassByQName(element.getText(), element.getContext());
           if (classByQName != null) {
@@ -152,9 +157,8 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
             if (namedSubComponent != null) {
               HaxeComponentName componentName = namedSubComponent.getComponentName();
               if (componentName != null) {
-                result.add(componentName.getIdentifier());
                 //FIXME should return even if componentName == null?
-                return result;
+                return Collections.singletonList(componentName.getIdentifier());
               }
             }
           }
