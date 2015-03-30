@@ -13,7 +13,7 @@
     <property name="version.specific.code.location" location="src" />
 
     <!-- the version of intellij we are building against -->
-    <property name="version" value="13.1.6" />
+    <property file="branch-specific.properties" />
 
     <!-- javac2 is an intellij ant task to wrap the java compiler and add
          support to .form files and @NotNull annotations, among others -->
