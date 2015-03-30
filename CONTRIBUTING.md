@@ -24,6 +24,7 @@ Install the following plugins [from Intellij IDEA plugin manager](https://www.je
 - UI Designer
 
 ####Testing
+- see https://confluence.jetbrains.com/display/IDEADEV/Testing+IntelliJ+IDEA+Plugins
 - JUnit
 
 ####Optional, install if you want to modify lexer/parser:
