@@ -85,11 +85,13 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
     // foo.bar.baz
     if (reference.getParent() instanceof HaxeReference) {
       final HaxeReference leftReference = HaxeResolveUtil.getLeftReference(reference);
-      if (leftReference != null) return resolveChain(leftReference, reference);
+      if (leftReference != null) {
+        return resolveChain(leftReference, reference);
+      }
     }
 
     // then maybe chain
-    // node(foo.node(bar)).node(baz)
+    // node(foo.node(bar)).node(baz) | this.someField
     {
       final HaxeReference[] childReferences = PsiTreeUtil.getChildrenOfType(reference, HaxeReference.class);
       if (childReferences != null && childReferences.length == 2) {
