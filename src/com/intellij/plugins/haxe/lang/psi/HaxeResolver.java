@@ -66,14 +66,6 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
     }
 
     {
-      // Maybe a package name
-      final PsiPackage psiPackage = JavaPsiFacade.getInstance(reference.getProject()).findPackage(reference.getText());
-      if (psiPackage != null) {
-        return toCandidateInfoArray(psiPackage);
-      }
-    }
-
-    {
       // See if it's a source file we're importing... (most likely a convenience library, such as haxe.macro.Tools)
       final PsiFile importFile = resolveImportFile(reference);
       if (null != importFile) {
@@ -187,6 +179,14 @@ public class HaxeResolver implements ResolveCache.AbstractResolver<HaxeReference
         resolveByClassAndSymbol(PsiTreeUtil.getParentOfType(reference, HaxeClass.class), reference);
       if (!superElements.isEmpty()) {
         return superElements;
+      }
+    }
+
+    {
+      // Maybe a package name
+      final PsiPackage psiPackage = JavaPsiFacade.getInstance(reference.getProject()).findPackage(reference.getText());
+      if (psiPackage != null) {
+        return toCandidateInfoArray(psiPackage);
       }
     }
 
